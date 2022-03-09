@@ -466,8 +466,22 @@ where
         self.database.borrow().iter_txs(include_raw)
     }
 
-    /// Return the balance, separated into available, trusted-pending, untrusted-pending and immature
-    /// values.
+    /// Return a transaction given its txid
+    ///
+    /// Optionally fill the [`TransactionDetails::transaction`] field with the raw transaction if
+    /// `include_raw` is `true`.
+    ///
+    /// Note that this methods only operate on the internal database, which first needs to be
+    /// [`Wallet::sync`] manually.
+    pub fn get_transaction(
+        &self,
+        txid: &Txid,
+        include_raw: bool,
+    ) -> Result<Option<TransactionDetails>, Error> {
+        self.database.borrow().get_tx(txid, include_raw)
+    }
+
+    /// Return the balance, meaning the sum of this wallet's unspent outputs' values
     ///
     /// Note that this method only operates on the internal database, which first needs to be
     /// [`Wallet::sync`] manually.
@@ -539,6 +553,29 @@ where
     /// # use bdk::{Wallet, KeychainKind};
     /// # use bdk::bitcoin::Network;
     /// # use bdk::database::MemoryDatabase;
+    /// let wallet = Wallet::new_offline("wpkh(tprv8ZgxMBicQKsPe73PBRSmNbTfbcsZnwWhz5eVmhHpi31HW29Z7mc9B4cWGRQzopNUzZUT391DeDJxL2PefNunWyLgqCKRMDkU1s2s8bAfoSk/84'/0'/0'/0/*)", None, Network::Testnet, MemoryDatabase::new())?;
+    /// for secret_key in wallet.get_signers(KeychainKind::External).signers().iter().filter_map(|s| s.descriptor_secret_key()) {
+    ///     // secret_key: tprv8ZgxMBicQKsPe73PBRSmNbTfbcsZnwWhz5eVmhHpi31HW29Z7mc9B4cWGRQzopNUzZUT391DeDJxL2PefNunWyLgqCKRMDkU1s2s8bAfoSk/84'/0'/0'/0/*
+    ///     println!("secret_key: {}", secret_key);
+    /// }
+    ///
+    /// Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn get_signers(&self, keychain: KeychainKind) -> Arc<SignersContainer> {
+        match keychain {
+            KeychainKind::External => Arc::clone(&self.signers),
+            KeychainKind::Internal => Arc::clone(&self.change_signers),
+        }
+    }
+
+    /// Add an address validator
+    ///
+    /// ## Example
+    ///
+    /// ```
+    /// # use bdk::{Wallet, KeychainKind};
+    /// # use bdk::bitcoin::Network;
+    /// # use bdk::database::MemoryDatabase;
     /// let wallet = Wallet::new("wpkh(tprv8ZgxMBicQKsPe73PBRSmNbTfbcsZnwWhz5eVmhHpi31HW29Z7mc9B4cWGRQzopNUzZUT391DeDJxL2PefNunWyLgqCKRMDkU1s2s8bAfoSk/84'/0'/0'/0/*)", None, Network::Testnet, MemoryDatabase::new())?;
     /// for secret_key in wallet.get_signers(KeychainKind::External).signers().iter().filter_map(|s| s.descriptor_secret_key()) {
     ///     // secret_key: tprv8ZgxMBicQKsPe73PBRSmNbTfbcsZnwWhz5eVmhHpi31HW29Z7mc9B4cWGRQzopNUzZUT391DeDJxL2PefNunWyLgqCKRMDkU1s2s8bAfoSk/84'/0'/0'/0/*
@@ -552,6 +589,11 @@ where
             KeychainKind::External => Arc::clone(&self.signers),
             KeychainKind::Internal => Arc::clone(&self.change_signers),
         }
+    }
+
+    /// Get the address validators
+    pub fn get_address_validators(&self) -> &[Arc<dyn AddressValidator>] {
+        &self.address_validators
     }
 
     /// Start building a transaction.
@@ -1770,9 +1812,9 @@ where
     pub fn descriptor_checksum(&self, keychain: KeychainKind) -> String {
         self.get_descriptor_for_keychain(keychain)
             .to_string()
-            .split_once('#')
+            .splitn(2, "#")
+            .next()
             .unwrap()
-            .1
             .to_string()
     }
 }
