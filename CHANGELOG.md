@@ -65,6 +65,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - added `ensure_addresses_cached` to `Wallet` to let offline wallets load and cache addresses in their database
 - Add `is_spent` field to `LocalUtxo`; when we notice that a utxo has been spent we set `is_spent` field to true instead of deleting it from the db.
 - Added `Wallet::get_signers()`, `Wallet::get_transaction()`, `Wallet::descriptor_checksum()` and `Wallet::get_address_validators()`, exposed the `AsDerived` trait.
+- Add traits to reuse `Blockchain`s across multiple wallets (`BlockchainFactory` and `StatelessBlockchain`).
 
 ### Sync API change
 
@@ -494,3 +495,4 @@ final transaction is created by calling `finish` on the builder.
 [v0.19.0]: https://github.com/bitcoindevkit/bdk/compare/v0.18.0...v0.19.0
 [v0.20.0]: https://github.com/bitcoindevkit/bdk/compare/v0.19.0...v0.20.0
 [v0.21.0]: https://github.com/bitcoindevkit/bdk/compare/v0.20.0...v0.21.0
+
